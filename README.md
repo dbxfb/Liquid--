@@ -22,8 +22,8 @@ There is a small option menu which can be opened using the middle mouse button,
 it can be used to:
 
 -   Toggle the (ugly) pixel blending algorithm
--   That's all (for now)
-
+-   Toggle the velocity vector field display (in red lines)
+-   Exit properly !
 
 Future
 ------
