@@ -176,14 +176,11 @@ void NSRenderer::render()
 
         for (u32 i = 0; i < solverSize; i += incr)
         {
-            u32 dx = i * dg;
+            f32 x = i * dg - dg_2;
 
             for (u32 j = 0; j < solverSize; j += incr)
             {
-                u32 dy = j * dg;
-
-                u32 x = dx - dg_2;
-                u32 y = dy - dg_2;
+                f32 y = j * dg - dg_2;
 
                 glVertex2f(x, y);
                 glVertex2f(x + 75 * mSolver.getU(i, j), y + 75 * mSolver.getV(i, j));
