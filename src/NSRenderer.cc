@@ -77,14 +77,14 @@ void NSRenderer::createVertices()
 
     for (u32 i = 0; i < solverSize; i++)
     {
-        u32 dx = (i + 0.5) * dg;
+        f32 dx = (i + 0.5) * dg;
 
         for (u32 j = 0; j < solverSize; j++)
         {
-            u32 dy = (j + 0.5) * dg;
+            f32 dy = (j + 0.5) * dg;
 
-            u32 x = dx - dg_2;
-            u32 y = dy - dg_2;
+            f32 x = dx - dg_2;
+            f32 y = dy - dg_2;
 
             u32 idx = i * 8 + j * line;
             mVertices[idx + 0] = x;
