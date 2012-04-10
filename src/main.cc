@@ -37,9 +37,8 @@ void* computationsThread(void*)
 
 int main(int argc, char** argv)
 {
-    Solver = new NSSolver(128, 1, 0, 1, 0);
+    Solver = new NSSolver(128, 0, 0, 1, 0);
     Renderer = new NSRenderer(&argc, argv, 1024, *Solver);
-
 
     pthread_t computations;
     pthread_create(&computations, NULL, &computationsThread, NULL);

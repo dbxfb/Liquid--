@@ -8,39 +8,37 @@ NSSolver::NSSolver(u32 res, Scalar density, Scalar viscosity, Scalar pressure, S
         mDelta(0), mTime(0), mRes(res), mDensity(density), mViscosity(viscosity),
                 mPressure(pressure), mDiffusion(diffusion)
 {
-    mSize = (mRes + 2) * (mRes + 2);
-
-    mD = new Scalar[mSize];
-    mOldD = new Scalar[mSize];
-    mU = new Scalar[mSize];
-    mOldU = new Scalar[mSize];
-    mV = new Scalar[mSize];
-    mOldV = new Scalar[mSize];
-    mCurl = new Scalar[mSize];
+    mD = alloc();
+    mOldD = alloc();
+    mU = alloc();
+    mOldU = alloc();
+    mV = alloc();
+    mOldV = alloc();
+    mCurl = alloc();
 
     reset();
 }
 
 NSSolver::~NSSolver()
 {
-    delete mD;
-    delete mOldD;
-    delete mU;
-    delete mOldU;
-    delete mV;
-    delete mOldV;
-    delete mCurl;
+    free(mD);
+    free(mOldD);
+    free(mU);
+    free(mOldU);
+    free(mV);
+    free(mOldV);
+    free(mCurl);
 }
 
 void NSSolver::reset()
 {
-    std::fill(mD, mD + mSize, 0);
-    std::fill(mOldD, mOldD + mSize, 0);
-    std::fill(mU, mU + mSize, 0);
-    std::fill(mOldU, mOldU + mSize, 0);
-    std::fill(mV, mV + mSize, 0);
-    std::fill(mOldV, mOldV + mSize, 0);
-    std::fill(mCurl, mCurl + mSize, 0);
+    fill(mD, mDensity);
+    fill(mOldD, mDensity);
+    fill(mU, 0);
+    fill(mOldU, 0);
+    fill(mV, 0);
+    fill(mOldV, 0);
+    fill(mCurl, 0);
 }
 
 void NSSolver::simulateStep(f64 delta)
@@ -55,6 +53,29 @@ void NSSolver::simulateStep(f64 delta)
 /* ************************************************************************** *
  * NSSolver : Private methods                                                 *
  * ************************************************************************** */
+
+NSSolver::Scalar** NSSolver::alloc()
+{
+    Scalar** array = new Scalar*[mRes + 2];
+    for (u32 i = 0; i < mRes + 2; i++)
+        array[i] = new Scalar[mRes + 2];
+
+    return array;
+}
+
+void NSSolver::free(Scalar** array)
+{
+    for (u32 i = 0; i < mRes + 2; i++)
+        delete array[i];
+
+    delete array;
+}
+
+void NSSolver::fill(Scalar** array, Scalar value)
+{
+    for (u32 i = 0; i < mRes + 2; i++)
+        std::fill(array[i], array[i] + mRes + 2, value);
+}
 
 void NSSolver::velocityStep()
 {
@@ -94,8 +115,8 @@ void NSSolver::velocityStep()
     project();
 
     // clear all input velocities for nemUt frame
-    std::fill(mOldU, mOldU + mSize, 0);
-    std::fill(mOldV, mOldV + mSize, 0);
+    fill(mOldU, 0);
+    fill(mOldV, 0);
 }
 
 void NSSolver::densityStep()
@@ -110,19 +131,20 @@ void NSSolver::densityStep()
     advect(0, mD, mOldD, mU, mV);
 
     // clear input density array for next frame
-    std::fill(mOldD, mOldD + mSize, 0);
+    fill(mOldD, 0);
 }
 
-void NSSolver::addSource(Scalar* to, const Scalar* src)
+void NSSolver::addSource(Scalar** to, Scalar** src)
 {
-    for (u32 i = 0; i < mSize; i++)
-        to[i] += mDelta * src[i];
+    for (u32 i = 0; i < mRes + 2; i++)
+        for (u32 j = 0; j < mRes + 2; j++)
+            to[i][j] += mDelta * src[i][j];
 }
 
 NSSolver::Scalar NSSolver::curl(u32 x, u32 y) const
 {
-    Scalar du_dx = (mU[I(x, y + 1)] - mU[I(x, y - 1)]); // * 0.5
-    Scalar dv_dy = (mV[I(x + 1, x)] - mV[I(x - 1, y)]); // * 0.5
+    Scalar du_dx = (mU[x][y + 1] - mU[x][y - 1]); // * 0.5
+    Scalar dv_dy = (mV[x + 1][x] - mV[x - 1][y]); // * 0.5
 
     return (du_dx - dv_dy) * 0.5;
 }
@@ -132,14 +154,14 @@ void NSSolver::vorticityConfinement()
     // Calculate magnitude of curl(u,v) for each cell. (|w|)
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
-            mCurl[I(i, j)] = abs(curl(i, j));
+            mCurl[i][j] = abs(curl(i, j));
 
     for (u32 i = 2; i < mRes; i++)
         for (u32 j = 2; j < mRes; j++)
         {
             // Find derivative of the magnitude (n = del |w|)
-            Scalar dw_dmU = (mCurl[I(i + 1, j)] - mCurl[I(i - 1, j)]) * 0.5f;
-            Scalar dw_dmV = (mCurl[I(i, j + 1)] - mCurl[I(i, j - 1)]) * 0.5f;
+            Scalar dw_dmU = (mCurl[i + 1][j] - mCurl[i - 1][j]) * 0.5f;
+            Scalar dw_dmV = (mCurl[i][j + 1] - mCurl[i][j - 1]) * 0.5f;
 
             // Calculate vector length. (|n|)
             // Add small factor to prevent divide bmV zeros.
@@ -152,8 +174,8 @@ void NSSolver::vorticityConfinement()
             Scalar v = curl(i, j);
 
             // N mU w
-            mOldU[I(i,j)] = dw_dmV * -v;
-            mOldV[I(i, j)] = dw_dmU * v;
+            mOldU[i][j] = dw_dmV * -v;
+            mOldV[i][j] = dw_dmU * v;
         }
 }
 
@@ -166,7 +188,7 @@ void NSSolver::buoyancy()
     // sum all temperatures
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
-            Tamb += mD[I(i, j)];
+            Tamb += mD[i][j];
 
     // get average temperature
     Tamb /= pow(f64(mRes), 2);
@@ -174,48 +196,45 @@ void NSSolver::buoyancy()
     // for each cell compute buomVancmV force
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
-            mOldV[I(i, j)] = a * mD[I(i, j)] + -b * (mD[I(i, j)] - Tamb);
+            mOldV[i][j] = a * mD[i][j] + -b * (mD[i][j] - Tamb);
 }
 
-void NSSolver::diffuse(Scalar* mU, Scalar* oldmU, Scalar diffusion)
+void NSSolver::diffuse(Scalar** mU, Scalar** oldmU, Scalar diffusion)
 {
     Scalar a = mDelta * diffusion * pow(mRes, 2);
     linearSolver(0, mU, oldmU, a, 1 + 4 * a);
 }
 
-void NSSolver::linearSolver(u32 b, Scalar* mU, Scalar* mU0, Scalar a, Scalar c)
+void NSSolver::linearSolver(u32 b, Scalar** mU, Scalar** mU0, Scalar a, Scalar c)
 {
     for (u32 k = 0; k < 20; k++)
     {
         for (u32 i = 1; i <= mRes; i++)
             for (u32 j = 1; j <= mRes; j++)
-            {
-                mU[I(i, j)] = (a
-                        * (mU[I(i-1, j)] + mU[I(i+1, j)] + mU[I(i, j-1)] + mU[I(i, j+1)])
-                        + mU0[I(i, j)]) / c;
-            }
+                mU[i][j] = (a * (mU[i - 1][j] + mU[i + 1][j] + mU[i][j - 1] + mU[i][j + 1])
+                        + mU0[i][j]) / c;
 
         setBoundaries(b, mU);
     }
 }
 
-void NSSolver::setBoundaries(u32 b, Scalar* mU)
+void NSSolver::setBoundaries(u32 b, Scalar** mU)
 {
     for (u32 i = 1; i <= mRes; i++)
     {
         Scalar v = (b == 1 ? -1 : 1);
-        mU[I(0, i)] = v * mU[I(1, i)];
-        mU[I(mRes+1, i)] = v * mU[I(mRes, i)];
+        mU[0][i] = v * mU[1][i];
+        mU[mRes + 1][i] = v * mU[mRes][i];
 
         v = (b == 2 ? -1 : 1);
-        mU[I(i, 0 )] = v * mU[I(i, 1)];
-        mU[I(i, mRes+1)] = v * mU[I(i, mRes)];
+        mU[i][0] = v * mU[i][1];
+        mU[i][mRes + 1] = v * mU[i][mRes];
     }
 
-    mU[I(0, 0)] = 0.5 * (mU[I(1, 0 )] + mU[I( 0, 1)]);
-    mU[I(0, mRes+1)] = 0.5 * (mU[I(1, mRes+1)] + mU[I( 0, mRes)]);
-    mU[I(mRes+1, 0)] = 0.5 * (mU[I(mRes, 0 )] + mU[I(mRes+1, 1)]);
-    mU[I(mRes+1, mRes+1)] = 0.5 * (mU[I(mRes, mRes+1)] + mU[I(mRes+1, mRes)]);
+    mU[0][0] = 0.5 * (mU[1][0] + mU[0][1]);
+    mU[0][mRes + 1] = 0.5 * (mU[1][mRes + 1] + mU[0][mRes]);
+    mU[mRes + 1][0] = 0.5 * (mU[mRes][0] + mU[mRes + 1][1]);
+    mU[mRes + 1][mRes + 1] = 0.5 * (mU[mRes][mRes + 1] + mU[mRes + 1][mRes]);
 }
 
 void NSSolver::project()
@@ -223,9 +242,8 @@ void NSSolver::project()
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
         {
-            mOldV[I(i, j)] = (mU[I(i+1, j)] - mU[I(i-1, j)] + mV[I(i, j+1)] - mV[I(i, j-1)]) * -0.5
-                    / mRes;
-            mOldU[I(i, j)] = 0;
+            mOldV[i][j] = (mU[i + 1][j] - mU[i - 1][j] + mV[i][j + 1] - mV[i][j - 1]) * -0.5 / mRes;
+            mOldU[i][j] = 0;
         }
 
     setBoundaries(0, mOldV);
@@ -236,15 +254,15 @@ void NSSolver::project()
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
         {
-            mU[I(i, j)] -= 0.5f * mRes * (mOldU[I(i+1, j)] - mOldU[I(i-1, j)]);
-            mV[I(i, j)] -= 0.5f * mRes * (mOldU[I(i, j+1)] - mOldU[I(i, j-1)]);
+            mU[i][j] -= 0.5f * mRes * (mOldU[i + 1][j] - mOldU[i - 1][j]);
+            mV[i][j] -= 0.5f * mRes * (mOldU[i][j + 1] - mOldU[i][j - 1]);
         }
 
     setBoundaries(1, mU);
     setBoundaries(2, mV);
 }
 
-void NSSolver::advect(u32 b, Scalar* d, Scalar* d0, Scalar* du, Scalar* dv)
+void NSSolver::advect(u32 b, Scalar** d, Scalar** d0, Scalar** du, Scalar** dv)
 {
     u32 i0, j0, i1, j1;
     Scalar x, y, s0, t0, s1, t1, dt0;
@@ -255,8 +273,8 @@ void NSSolver::advect(u32 b, Scalar* d, Scalar* d0, Scalar* du, Scalar* dv)
         for (u32 j = 1; j <= mRes; j++)
         {
             // go backwards through velocity field
-            x = i - dt0 * du[I(i, j)];
-            y = j - dt0 * dv[I(i, j)];
+            x = i - dt0 * du[i][j];
+            y = j - dt0 * dv[i][j];
 
             // interpolate results
             if (x > mRes + 0.5)
@@ -280,8 +298,8 @@ void NSSolver::advect(u32 b, Scalar* d, Scalar* d0, Scalar* du, Scalar* dv)
             t1 = y - j0;
             t0 = 1 - t1;
 
-            d[I(i, j)] = s0 * (t0 * d0[I(i0, j0)] + t1 * d0[I(i0, j1)])
-                    + s1 * (t0 * d0[I(i1, j0)] + t1 * d0[I(i1, j1)]);
+            d[i][j] = s0 * (t0 * d0[i0][j0] + t1 * d0[i0][j1])
+                    + s1 * (t0 * d0[i1][j0] + t1 * d0[i1][j1]);
 
         }
 
