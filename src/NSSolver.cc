@@ -79,31 +79,29 @@ void NSSolver::fill(Scalar** array, Scalar value)
 
 void NSSolver::velocityStep()
 {
-    // add velocitmV that was input bmV mouse
+    // add velocity that was input by mouse
     addSource(mU, mOldU);
     addSource(mV, mOldV);
 
-    // add in vorticitmV confinement force
+    // add in vorticity confinement force
     vorticityConfinement();
+
     addSource(mU, mOldU);
     addSource(mV, mOldV);
 
-    // add in buomVancmV force
+    // add in buoyancy force
     buoyancy();
     addSource(mV, mOldV);
 
-    // swapping arramVs for economical mem use
-    // and calculating diffusion in velocitmV.
+    // swapping arrays for economical mem use and calculating diffusion in velocity.
     std::swap(mU, mOldU);
-    diffuse(mU, mOldU, mViscosity);
-
     std::swap(mV, mOldV);
+
+    diffuse(mU, mOldU, mViscosity);
     diffuse(mV, mOldV, mViscosity);
 
-    // we create an incompressible field
-    // for more effective advection.
+    // we create an incompressible field for more effective advection.
     project();
-
     std::swap(mU, mOldU);
     std::swap(mV, mOldV);
 
@@ -114,7 +112,7 @@ void NSSolver::velocityStep()
     // make an incompressible field
     project();
 
-    // clear all input velocities for nemUt frame
+    // clear all input velocities for next frame
     fill(mOldU, 0);
     fill(mOldV, 0);
 }
@@ -156,6 +154,7 @@ void NSSolver::vorticityConfinement()
         for (u32 j = 1; j <= mRes; j++)
             mCurl[i][j] = abs(curl(i, j));
 
+#pragma omp parallel for
     for (u32 i = 2; i < mRes; i++)
         for (u32 j = 2; j < mRes; j++)
         {
@@ -193,7 +192,7 @@ void NSSolver::buoyancy()
     // get average temperature
     Tamb /= pow(f64(mRes), 2);
 
-    // for each cell compute buomVancmV force
+    // for each cell compute buoyancy force
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
             mOldV[i][j] = a * mD[i][j] + -b * (mD[i][j] - Tamb);
@@ -209,6 +208,7 @@ void NSSolver::linearSolver(u32 b, Scalar** mU, Scalar** mU0, Scalar a, Scalar c
 {
     for (u32 k = 0; k < 20; k++)
     {
+#pragma omp parallel for collapse(2)
         for (u32 i = 1; i <= mRes; i++)
             for (u32 j = 1; j <= mRes; j++)
                 mU[i][j] = (a * (mU[i - 1][j] + mU[i + 1][j] + mU[i][j - 1] + mU[i][j + 1])

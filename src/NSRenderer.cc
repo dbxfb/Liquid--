@@ -6,7 +6,9 @@
 
 enum NSRendererMenu
 {
-    MENU_BLENDING
+    MENU_BLENDING,
+    MENU_VELOCITY,
+    MENU_QUIT
 };
 
 /* ************************************************************************** *
@@ -14,7 +16,7 @@ enum NSRendererMenu
  * ************************************************************************** */
 
 NSRenderer::NSRenderer(int* argc, char** argv, u32 size, NSSolver& solver) :
-        mSize(size), mSolver(solver), mPixelBlending(false)
+        mSize(size), mSolver(solver), mPixelBlending(false), mVelocityVectors(false)
 {
     mInstance = this;
 
@@ -55,7 +57,10 @@ void NSRenderer::run()
 void NSRenderer::createMenu()
 {
     glutCreateMenu(&NSRenderer::doMenu);
+
     glutAddMenuEntry("Toggle pixel blending", MENU_BLENDING);
+    glutAddMenuEntry("Toggle velocity vectors", MENU_VELOCITY);
+    glutAddMenuEntry("Exit", MENU_QUIT);
 
     glutAttachMenu(GLUT_MIDDLE_BUTTON);
 }
@@ -173,10 +178,16 @@ void NSRenderer::makeVec(f32 x, f32 y, f32 dx, f32 dy)
 
 void NSRenderer::handleMenu(int menu)
 {
-    switch(menu)
+    switch (menu)
     {
     case MENU_BLENDING:
         mPixelBlending = !mPixelBlending;
+        break;
+    case MENU_VELOCITY:
+        mVelocityVectors = !mVelocityVectors;
+        break;
+    case MENU_QUIT:
+        exit(0);
         break;
     default:
         std::cout << "Menu(" << menu << ")" << std::endl;

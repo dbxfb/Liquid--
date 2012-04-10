@@ -45,6 +45,7 @@ private:
     s32 mPrevX, mPrevY;
 
     bool mPixelBlending;
+    bool mVelocityVectors;
 
     static NSRenderer* mInstance;
 };
