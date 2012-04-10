@@ -31,8 +31,6 @@ private:
     void mouseClick(u32 button, u32 state, u32 x, u32 y);
     void mouseMove(u32 x, u32 y);
 
-    void makeVec(f32 x, f32 y, f32 dx, f32 dy);
-
     u32 mSize;
     NSSolver& mSolver;
     bool mHasData;

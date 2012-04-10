@@ -165,15 +165,35 @@ void NSRenderer::render()
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
 
-    glutSwapBuffers();
-}
+    if (mVelocityVectors)
+    {
+        glColor3f(1, 0, 0);
+        glBegin(GL_LINES);
 
-void NSRenderer::makeVec(f32 x, f32 y, f32 dx, f32 dy)
-{
-    glBegin(GL_LINES);
-    glVertex2f(x, y);
-    glVertex2f(x + dx, y + dy);
-    glEnd();
+        f32 dg = f32(mSize) / f32(solverSize);
+        f32 dg_2 = dg / 2.0;
+        u32 incr = solverSize / 64;
+
+        for (u32 i = 0; i < solverSize; i += incr)
+        {
+            u32 dx = i * dg;
+
+            for (u32 j = 0; j < solverSize; j += incr)
+            {
+                u32 dy = j * dg;
+
+                u32 x = dx - dg_2;
+                u32 y = dy - dg_2;
+
+                glVertex2f(x, y);
+                glVertex2f(x + 75 * mSolver.getU(i, j), y + 75 * mSolver.getV(i, j));
+            }
+        }
+
+        glEnd();
+    }
+
+    glutSwapBuffers();
 }
 
 void NSRenderer::handleMenu(int menu)
