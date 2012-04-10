@@ -1,0 +1,8 @@
+# Liquid--
+
+This is a small C++ project, all about computing a fluid simulation in 2D and
+rendering it using OpenGL :)
+
+You can add some dark fluid by left clicking and dragging, and move the fluid
+using right click.
+
