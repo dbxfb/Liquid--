@@ -1,5 +1,7 @@
 #include "common.hh"
 
+#define GL_GLEXT_PROTOTYPES 1
+
 #include <GL/glut.h>
 
 /* ************************************************************************** *
@@ -29,16 +31,12 @@ NSRenderer::~NSRenderer()
     delete mColors;
 }
 
-void NSRenderer::post()
-{
-    glutPostRedisplay();
-}
-
 void NSRenderer::run()
 {
     glutDisplayFunc(&NSRenderer::doRender);
     glutMouseFunc(&NSRenderer::doMouse);
     glutMotionFunc(&NSRenderer::doMouseMove);
+    glutIdleFunc(&NSRenderer::doRefresh);
 
     // Has to be run as the main program thread !
     glutMainLoop();
@@ -79,6 +77,7 @@ void NSRenderer::createVertices()
             mVertices[idx + 7] = y + dg;
         }
     }
+
 }
 
 void NSRenderer::createColors()
@@ -94,28 +93,59 @@ void NSRenderer::render()
     u32 solverSize = mSolver.getRes();
     u32 line = solverSize * 4 * 3;
 
+#if 0
     for (u32 i = 0; i < solverSize; i++)
-        for (u32 j = 0; j < solverSize; j++)
+    for (u32 j = 0; j < solverSize; j++)
+    {
+        u32 idx = i * 4 * 3 + j * line;
+        f32 d = std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
+        u32 c = d * 255;
+        std::fill(mColors + idx, mColors + idx + 4 * 3, c);
+    }
+#else
+    // Hardcore pixel blending from hell :)
+    for (u32 j = 0; j < solverSize; j++)
+    {
+        u8* ptr = mColors + (j * line);
+        for (u32 i = 0; i < solverSize; i++)
         {
-            u32 idx = i * 4 * 3 + j * line;
-            f32 d = std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
-            u32 c = d * 255;
-            std::fill(mColors + idx, mColors + idx + 4 * 3, c);
+            u8 d;
+            {
+                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j));
+                std::fill(ptr, ptr + 3, d);
+                ptr += 3;
+            }
+            {
+                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j));
+                std::fill(ptr, ptr + 3, d);
+                ptr += 3;
+            }
+            {
+                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
+                std::fill(ptr, ptr + 3, d);
+                ptr += 3;
+            }
+            {
+                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j + 1));
+                std::fill(ptr, ptr + 3, d);
+                ptr += 3;
+            }
         }
+    }
+#endif
 
     glClear(GL_COLOR_BUFFER_BIT);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     {
-        glColorPointer(3, GL_UNSIGNED_BYTE, 0, mColors);
         glVertexPointer(2, GL_FLOAT, 0, mVertices);
+        glColorPointer(3, GL_UNSIGNED_BYTE, 0, mColors);
         glDrawArrays(GL_QUADS, 0, solverSize * solverSize * 4);
     }
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
 
-    glFlush();
     glutSwapBuffers();
 }
 
@@ -176,6 +206,17 @@ void NSRenderer::mouseMove(u32 x, u32 y)
  * ************************************************************************** */
 
 NSRenderer* NSRenderer::mInstance = NULL;
+
+void NSRenderer::doRefresh()
+{
+    if (mInstance->mHasData)
+    {
+        glutPostRedisplay();
+        mInstance->mHasData = false;
+    }
+    else
+        usleep(10000);
+}
 
 void NSRenderer::doRender()
 {

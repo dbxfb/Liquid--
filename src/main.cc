@@ -7,11 +7,28 @@ static NSRenderer* Renderer = NULL;
 
 void* computationsThread(void*)
 {
+    std::queue<f64> timings;
+    f64 total = 0;
+    u32 i = 1;
+
     Timer t, bench;
     while (true)
     {
         Solver->simulateStep(t.delta());
-        cout << (bench.delta() * 1000) << endl;
+
+        f64 time = bench.delta();
+        total += time;
+        timings.push(time);
+        if(timings.size() > 13)
+        {
+            total -= timings.front();
+            timings.pop();
+            i++;
+        }
+
+        if(i % 13 == 0)
+            cout << (13 / total) << " fps" << endl;
+
         Renderer->post();
     }
 
@@ -20,7 +37,7 @@ void* computationsThread(void*)
 
 int main(int argc, char** argv)
 {
-    Solver = new NSSolver(256, 1, 0, 1, 0);
+    Solver = new NSSolver(128, 1, 0, 1, 0);
     Renderer = new NSRenderer(&argc, argv, 1024, *Solver);
 
     pthread_t computations;
