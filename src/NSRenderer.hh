@@ -14,17 +14,20 @@ public:
     }
 
 private:
+    static void doMenu(int menu);
     static void doRefresh();
     static void doRender();
     static void doMouse(int button, int state, int x, int y);
     static void doMouseMove(int x, int y);
 
+    void createMenu();
     void createVertices();
     void createColors();
 
     void computeStep();
     void render();
 
+    void handleMenu(int menu);
     void mouseClick(u32 button, u32 state, u32 x, u32 y);
     void mouseMove(u32 x, u32 y);
 
@@ -40,6 +43,8 @@ private:
     u32 mMouseButton;
     bool mMouseDown;
     s32 mPrevX, mPrevY;
+
+    bool mPixelBlending;
 
     static NSRenderer* mInstance;
 };

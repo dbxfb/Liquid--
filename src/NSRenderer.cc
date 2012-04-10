@@ -4,12 +4,17 @@
 
 #include <GL/glut.h>
 
+enum NSRendererMenu
+{
+    MENU_BLENDING
+};
+
 /* ************************************************************************** *
  * NSRenderer : Public methods                                                *
  * ************************************************************************** */
 
 NSRenderer::NSRenderer(int* argc, char** argv, u32 size, NSSolver& solver) :
-        mSize(size), mSolver(solver)
+        mSize(size), mSolver(solver), mPixelBlending(false)
 {
     mInstance = this;
 
@@ -21,6 +26,7 @@ NSRenderer::NSRenderer(int* argc, char** argv, u32 size, NSSolver& solver) :
     glClearColor(.3, .3, .5, 0);
     gluOrtho2D(0, mSize, 0, mSize);
 
+    createMenu();
     createVertices();
     createColors();
 }
@@ -45,6 +51,15 @@ void NSRenderer::run()
 /* ************************************************************************** *
  * NSRenderer : Private methods                                               *
  * ************************************************************************** */
+
+void NSRenderer::createMenu()
+{
+    glutCreateMenu(&NSRenderer::doMenu);
+    glutAddMenuEntry("Toggle pixel blending", MENU_BLENDING);
+
+    glutAttachMenu(GLUT_MIDDLE_BUTTON);
+}
+
 void NSRenderer::createVertices()
 {
     u32 solverSize = mSolver.getRes();
@@ -77,7 +92,6 @@ void NSRenderer::createVertices()
             mVertices[idx + 7] = y + dg;
         }
     }
-
 }
 
 void NSRenderer::createColors()
@@ -93,46 +107,46 @@ void NSRenderer::render()
     u32 solverSize = mSolver.getRes();
     u32 line = solverSize * 4 * 3;
 
-#if 0
-    for (u32 i = 0; i < solverSize; i++)
-    for (u32 j = 0; j < solverSize; j++)
-    {
-        u32 idx = i * 4 * 3 + j * line;
-        f32 d = std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
-        u32 c = d * 255;
-        std::fill(mColors + idx, mColors + idx + 4 * 3, c);
-    }
-#else
-    // Hardcore pixel blending from hell :)
-    for (u32 j = 0; j < solverSize; j++)
-    {
-        u8* ptr = mColors + (j * line);
+    if (!mPixelBlending)
+        // Retro pixelated world
         for (u32 i = 0; i < solverSize; i++)
+            for (u32 j = 0; j < solverSize; j++)
+            {
+                u32 idx = i * 4 * 3 + j * line;
+                f32 d = std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
+                u32 c = d * 255;
+                std::fill(mColors + idx, mColors + idx + 4 * 3, c);
+            }
+    else
+        // Hardcore pixel blending from hell :)
+        for (u32 j = 0; j < solverSize; j++)
         {
-            u8 d;
+            u8* ptr = mColors + (j * line);
+            for (u32 i = 0; i < solverSize; i++)
             {
-                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j));
-                std::fill(ptr, ptr + 3, d);
-                ptr += 3;
-            }
-            {
-                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j));
-                std::fill(ptr, ptr + 3, d);
-                ptr += 3;
-            }
-            {
-                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
-                std::fill(ptr, ptr + 3, d);
-                ptr += 3;
-            }
-            {
-                d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j + 1));
-                std::fill(ptr, ptr + 3, d);
-                ptr += 3;
+                u8 d;
+                {
+                    d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j));
+                    std::fill(ptr, ptr + 3, d);
+                    ptr += 3;
+                }
+                {
+                    d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j));
+                    std::fill(ptr, ptr + 3, d);
+                    ptr += 3;
+                }
+                {
+                    d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i + 1, j + 1));
+                    std::fill(ptr, ptr + 3, d);
+                    ptr += 3;
+                }
+                {
+                    d = 255.0 * std::max(0.0, 1.0 - mSolver.getDensity(i, j + 1));
+                    std::fill(ptr, ptr + 3, d);
+                    ptr += 3;
+                }
             }
         }
-    }
-#endif
 
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -157,6 +171,18 @@ void NSRenderer::makeVec(f32 x, f32 y, f32 dx, f32 dy)
     glEnd();
 }
 
+void NSRenderer::handleMenu(int menu)
+{
+    switch(menu)
+    {
+    case MENU_BLENDING:
+        mPixelBlending = !mPixelBlending;
+        break;
+    default:
+        std::cout << "Menu(" << menu << ")" << std::endl;
+    }
+}
+
 void NSRenderer::mouseClick(u32 button, u32 state, u32 x, u32 y)
 {
     mMouseButton = button;
@@ -171,8 +197,8 @@ void NSRenderer::mouseMove(u32 x, u32 y)
     u32 solverSize = mSolver.getRes();
 
     // get index for fluid cell under mouse position
-    u32 i = (f64(x) / 1024.0) * solverSize + 1;
-    u32 j = (f64(y) / 1024.0) * solverSize + 1;
+    u32 i = (f64(x) / f64(mSize)) * solverSize + 1;
+    u32 j = (f64(y) / f64(mSize)) * solverSize + 1;
 
     // set boundries
     if (i > solverSize)
@@ -206,6 +232,11 @@ void NSRenderer::mouseMove(u32 x, u32 y)
  * ************************************************************************** */
 
 NSRenderer* NSRenderer::mInstance = NULL;
+
+void NSRenderer::doMenu(int menu)
+{
+    mInstance->handleMenu(menu);
+}
 
 void NSRenderer::doRefresh()
 {

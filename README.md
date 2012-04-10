@@ -11,8 +11,17 @@ rendering it using OpenGL :)
 Usage
 -----
 
-You can add some dark fluid by left clicking and dragging, and move the fluid
-using right click.
+This repository contains the Eclipse CDT project files (for compilations etc.)
+because this is a small project and I'm currently lazy :)
+
+You can add some dark fluid by clicking/dragging left inside the window, and
+induce movements (change velocity vectors) by dragging using the right mouse
+button.
+
+There is a small option menu which can be opened using the middle mouse button,
+it can be used to:
+-  Toggle the (ugly) pixel blending algorithm
+-  That's all (for now)
 
 
 Future
