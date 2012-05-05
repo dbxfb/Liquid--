@@ -48,6 +48,10 @@ void NSSolver::simulateStep(f64 delta)
 
     velocityStep();
     densityStep();
+
+    for (u32 i = 0; i < mRes + 2; i++)
+        for (u32 j = 0; j < mRes + 2; j++)
+            mD[i][j] = std::max(0.0, mD[i][j] - delta / 25);
 }
 
 /* ************************************************************************** *
@@ -180,9 +184,9 @@ void NSSolver::vorticityConfinement()
 
 void NSSolver::buoyancy()
 {
-    Scalar Tamb = 0;
+    Scalar Tamb = 0.05;
     Scalar a = 0.000625f;
-    Scalar b = 0.025f;
+    Scalar b = 0.075f;
 
     // sum all temperatures
     for (u32 i = 1; i <= mRes; i++)
@@ -195,7 +199,7 @@ void NSSolver::buoyancy()
     // for each cell compute buoyancy force
     for (u32 i = 1; i <= mRes; i++)
         for (u32 j = 1; j <= mRes; j++)
-            mOldV[i][j] = a * mD[i][j] + -b * (mD[i][j] - Tamb);
+            mOldV[i][j] = a * mD[i][j] - b * (mD[i][j] - Tamb);
 }
 
 void NSSolver::diffuse(Scalar** mU, Scalar** oldmU, Scalar diffusion)
